@@ -112,14 +112,17 @@
       port: 8080/tcp
       permanent: yes
       state: enabled
+      immediate: yes
   - firewalld:
       port: 8009/tcp
       permanent: yes
       state: enabled
+      immediate: yes
   - firewalld:
       port: 8443/tcp
       permanent: yes
-      state: enabled         
+      state: enabled
+      immediate: yes         
 
 
   - name: COMPROBANDO ESTADO DEL SERVIDOR DE APLICACIONES
