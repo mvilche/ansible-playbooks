@@ -1,0 +1,181 @@
+- hosts: wildfly
+#  remote_user: 
+  become: true
+  become_method: sudo
+  vars_files:
+    - envs.yaml
+  tasks:
+
+  - name: VALIDANDO REQUESITOS PREVIOS
+    fail:
+      msg: EL SERVIDOR DONDE INTENTA EJECUTAR NO CUMPLE LOS REQUERIMIENTOS REQUERIDOS. REQUIERE SISTEMA OPERATIVO CENTOS
+    when: ansible_facts['distribution'] != "CentOS" 
+
+  - name: ACTUALIZANDO SISTEMA OPERATIVO
+    yum: name=* state=latest
+
+  - name: INSTALANDO DEPENDENCIAS NECESARIAS
+    yum:
+      name: 
+        - wget
+        - curl
+        - telnet
+        - "{{ jdk }}"
+      state: latest
+      update_cache: true
+  
+  - name: CREANDO DIRECTORIOS NECESARIOS
+    file:
+      path: "{{ item }}"
+      state: directory
+    with_items:
+      - '/opt/wildfly'
+      - '/etc/wildfly'
+ 
+
+  - name: CREANDO GRUPO PARA LA INSTALACION
+    group:
+      name: wildfly
+
+  - name: CREANDO USUARIO PARA LA INSTALACION
+    user:
+      name: wildfly
+      comment: "usuario admin del servidor de aplicaciones"
+      group: wildfly
+      shell: /sbin/nologin
+
+  - name: DESCARGANDO SERVIDOR DE APLICACIONES
+    get_url:
+      url: "{{ server_url }}" 
+      dest: /tmp/wildfly.tar.gz
+      group: wildfly
+      owner: wildfly  
+
+  - name: INSTALANDO SERVIDOR DE APLICACIONES
+    unarchive:
+      src: /tmp/wildfly.tar.gz 
+      dest: /opt/wildfly
+      extra_opts: 
+        - --strip-components=1
+        - -C 
+        - /opt/wildfly
+      remote_src: yes
+      group: wildfly
+      owner: wildfly
+
+  - name: COPIANDO ARCHIVOS NECESARIOS
+    copy: src=configs/contrib/scripts/systemd/wildfly.conf dest=/etc/wildfly owner=wildfly group=wildfly
+  - copy: src=configs/contrib/scripts/systemd/wildfly.service dest=/etc/systemd/system/
+  - copy: src=configs/contrib/scripts/systemd/launch.sh dest=/opt/wildfly/bin/ owner=wildfly group=wildfly mode=ug+x
+  - copy: src=configs/wfmodules/org dest=/opt/wildfly/modules owner=wildfly group=wildfly
+  - copy: src=configs/wfmodules/com dest=/opt/wildfly/modules owner=wildfly group=wildfly
+  - copy: src=configs/wfmodules/biz dest=/opt/wildfly/modules/system/layers/base owner=wildfly group=wildfly
+
+
+  - name: FIX SELINUX
+    sefcontext:
+      target: "/opt/wildfly/bin(/.*)?"
+      setype: bin_t
+      state: present  
+
+  - command: "{{ item }}"
+    with_items:
+      - restorecon -Rv /opt/wildfly/bin/
+    ignore_errors: yes
+
+  - name: ACTIVANDO SERVICIO DEL SERVIDOR DE APLICACIONES
+    systemd:
+      name: wildfly
+      enabled: yes
+      daemon_reload: yes
+      masked: no
+
+  - name: INICIANDO EL SERVIDOR DE APLICACIONES
+    systemd:
+      name: wildfly
+      state: started
+
+  - name: ACTIVANDO SERVICIO DE FIREWALLD
+    systemd:
+      name: firewalld
+      enabled: yes
+      daemon_reload: yes
+      masked: no
+
+  - name: INICIANDO FIREWALLD
+    systemd:
+      name: firewalld
+      state: started
+
+  - name: HABILITANDO PUERTOS NECESARIOS EN FIREWALL
+    firewalld:
+      port: 8080/tcp
+      permanent: yes
+      state: enabled
+  - firewalld:
+      port: 8009/tcp
+      permanent: yes
+      state: enabled
+  - firewalld:
+      port: 8443/tcp
+      permanent: yes
+      state: enabled         
+
+
+  - name: COMPROBANDO ESTADO DEL SERVIDOR DE APLICACIONES
+    uri:
+      url: http://localhost:8080
+      status_code: 200
+    register: result
+    until: result.status == 200
+    retries: 60
+    delay: 10
+
+  - name: DETENIENDO EL SERVIDOR DE APLICACIONES
+    systemd:
+      name: wildfly
+      state: stopped
+
+  - name: COPIANDO ARCHIVOS NECESARIOS
+    copy: src=configs/standalone.xml dest=/opt/wildfly/standalone/configuration/ owner=wildfly group=wildfly
+
+  - name: CONFIGURANDO DATASOURCES
+    replace:
+      path: /opt/wildfly/standalone/configuration/standalone.xml
+      regexp: 'JDBC_URL'
+      replace: "{{ jdbc_url }}"
+  - replace:
+      path: /opt/wildfly/standalone/configuration/standalone.xml
+      regexp: 'DBDRIVER'
+      replace: "{{ driver }}"
+  - replace:
+      path: /opt/wildfly/standalone/configuration/standalone.xml
+      regexp: 'DBUSER'
+      replace: "{{ db_user }}"
+  - replace:
+      path: /opt/wildfly/standalone/configuration/standalone.xml
+      regexp: 'DBPASS'
+      replace: "{{ db_pass }}"
+  - replace:
+      path: /opt/wildfly/standalone/configuration/standalone.xml
+      regexp: 'JNDINAME'
+      replace: "{{ jndi_name }}"      
+
+  - name: INICIANDO EL SERVIDOR DE APLICACIONES
+    systemd:
+      name: wildfly
+      state: started
+
+  - name: COMPROBANDO ESTADO DEL SERVIDOR DE APLICACIONES
+    uri:
+      url: http://localhost:8080
+      status_code: 200
+    register: result
+    until: result.status == 200
+    retries: 60
+    delay: 10
+
+  - name: REALIZANDO LIMPIEZA 
+    file:
+      path: /tmp/wildfly.tar.gz
+      state: absent

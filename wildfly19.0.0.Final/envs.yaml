@@ -1,0 +1,14 @@
+###url servidor de aplicaciones
+server_url: https://download.jboss.org/wildfly/19.0.0.Final/wildfly-19.0.0.Final.tar.gz
+## version jdk
+jdk: java-11-openjdk
+##database driver disponibles: mysql, oracle, postgresql
+driver: postgresql
+##jdbc url database
+jdbc_url: jdbc:postgresql://127.0.0.1:5432/mi_db
+### database user
+db_user: postgres
+### database pass
+db_pass: password
+###
+jndi_name: java:jboss/datasources/miapp
