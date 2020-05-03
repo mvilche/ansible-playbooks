@@ -12,7 +12,9 @@
     when: ansible_facts['distribution'] != "CentOS" 
 
   - name: ACTUALIZANDO SISTEMA OPERATIVO
-    yum: name=* state=latest
+    yum:
+      name: '*'
+      state: latest
 
   - name: INSTALANDO DEPENDENCIAS NECESARIAS
     yum:
