@@ -21,6 +21,7 @@
       name: 
         - curl
         - telnet
+        - policycoreutils-python
         - glibc-common
         - https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
       state: latest
@@ -322,6 +323,11 @@
         
         /** Sets up WordPress vars and included files. */
         require_once ABSPATH . 'wp-settings.php';
+
+
+  - name: FIX SELINUX
+    selinux:
+      state: disabled     
 
 
   - name: COMPROBANDO ESTADO DE WORDPRESS

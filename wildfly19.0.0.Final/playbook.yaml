@@ -21,6 +21,7 @@
       name: 
         - wget
         - curl
+        - policycoreutils-python
         - telnet
         - "{{ jdk }}"
       state: latest

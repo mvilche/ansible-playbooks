@@ -1,0 +1,138 @@
+- hosts: all
+#  remote_user: 
+  become: true
+  become_method: sudo
+  vars_files:
+    - envs.yaml
+  tasks:
+
+
+  - name: VALIDANDO REQUESITOS PREVIOS
+    fail:
+      msg: EL SERVIDOR DONDE INTENTA EJECUTAR NO CUMPLE LOS REQUERIMIENTOS REQUERIDOS. REQUIERE SISTEMA OPERATIVO CENTOS
+    when: ansible_facts['distribution'] != "CentOS" 
+
+  - name: ACTUALIZANDO PAQUETES DEL SISTEMA OPERATIVO
+    yum:
+      name: '*'
+      state: latest
+
+  - name: INSTALANDO DEPENDENCIAS PREVIAS
+    yum:
+      name: 
+        - mysql*
+        - mariadb*
+      state: absent
+  - yum:
+      name: 
+        - curl
+        - telnet
+        - policycoreutils-python
+        - glibc-common
+        - https://dev.mysql.com/get/mysql80-community-release-el7-3.noarch.rpm
+      state: latest
+      update_cache: true
+
+  - name: INSTALANDO DEPENDENCIAS
+    yum:
+      name: 
+        - mysql-community-server 
+        - MySQL-python
+        - python
+      state: latest
+      enablerepo: mysql-cluster-8.0-community
+      update_cache: true
+
+  - name: INICIALIZANDO MYSQL
+    file:
+      path: /var/lib/mysql
+      state: absent
+  - shell: mysqld --initialize-insecure --user=mysql
+  
+  - name: FIX SELINUX
+    sefcontext:
+      target: "/var/lib/mysql"
+      setype: mysqld_db_t
+      state: present
+  - command: restorecon -irv /var/lib/mysql
+  - selinux:
+    state: disabled   
+
+  - name: ACTIVANDO SERVICIO
+    systemd:
+      name: mysqld
+      enabled: yes
+      daemon_reload: yes
+      masked: no
+
+  - name: INICIANDO SERVICIO
+    systemd:
+      name: mysqld
+      state: started
+
+  - name: ACTIVANDO SERVICIO DE FIREWALLD
+    systemd:
+      name: firewalld
+      enabled: yes
+      daemon_reload: yes
+      masked: no
+
+  - name: INICIANDO FIREWALLD
+    systemd:
+      name: firewalld
+      state: started
+
+  - name: HABILITANDO PUERTOS NECESARIOS EN FIREWALL
+    firewalld:
+      port: 3306/tcp
+      permanent: yes
+      state: enabled
+      immediate: yes
+
+  - name: DEFINIENDO ARCHIVO DE CONFIGURACION
+    copy:
+      dest: "/etc/my.cnf"
+      content: |
+        [mysqld]
+        # ANSIBLE CONFIG
+        default-authentication-plugin=mysql_native_password
+        datadir=/var/lib/mysql
+        socket=/var/lib/mysql/mysql.sock
+        log-error=/var/log/mysqld.log
+        pid-file=/var/run/mysqld/mysqld.pid
+        bind-address=0.0.0.0
+
+  - name: REINICIANDO SERVICIO
+    systemd:
+      name: mysqld
+      state: restarted
+
+  - name: CAMBIANDO CONTRASEÑA DE root
+    command: mysql -uroot -NBe 'ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY "{{ mysql_root_password }}"'
+
+  - name: CREANDO BASE DE DATOS
+    mysql_db:
+      config_file: /etc/my.cnf
+      login_user: root
+      login_password: "{{ mysql_root_password }}"
+      name: "{{ mysql_database }}"
+      state: present
+
+  - name: CREANDO USUARIO
+    mysql_user:
+      login_user: root
+      login_password: "{{ mysql_root_password }}"
+      config_file: /etc/my.cnf
+      name: "{{ mysql_user }}"
+      password: "{{ mysql_password }}"
+      priv: "{{ mysql_database }}.*:ALL"
+      host_all: true
+      state: present
+    
+  - name: COMPROBANDO ESTADO DE MYSQL
+    wait_for:
+      host: 127.0.0.1
+      port: 3306
+      state: started
+      delay: 0
+      timeout: 10 

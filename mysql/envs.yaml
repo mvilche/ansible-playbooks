@@ -1,0 +1,4 @@
+mysql_root_password: Password2020!!
+mysql_user: wordpress
+mysql_password: Wordpress2020!!
+mysql_database: wordpress
