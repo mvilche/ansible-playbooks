@@ -10,5 +10,5 @@ jdbc_url: jdbc:postgresql://127.0.0.1:5432/mi_db
 db_user: postgres
 ### database pass
 db_pass: password
-###
+### jndi name datasource config
 jndi_name: java:jboss/datasources/miapp

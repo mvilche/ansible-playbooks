@@ -2,4 +2,4 @@
 mysql_user: wordpress
 mysql_password: Wordpress2020!!
 mysql_database: wordpress
-mysql_host: localhost
+mysql_host: 127.0.0.1

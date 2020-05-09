@@ -50,13 +50,8 @@
   - shell: mysqld --initialize-insecure --user=mysql
   
   - name: FIX SELINUX
-    sefcontext:
-      target: "/var/lib/mysql"
-      setype: mysqld_db_t
-      state: present
-  - command: restorecon -irv /var/lib/mysql
-  - selinux:
-    state: disabled   
+    selinux:
+      state: disabled
 
   - name: ACTIVANDO SERVICIO
     systemd:
@@ -126,7 +121,7 @@
       name: "{{ mysql_user }}"
       password: "{{ mysql_password }}"
       priv: "{{ mysql_database }}.*:ALL"
-      host_all: true
+      host: '%'
       state: present
     
   - name: COMPROBANDO ESTADO DE MYSQL
