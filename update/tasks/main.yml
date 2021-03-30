@@ -1,0 +1,12 @@
+---
+# tasks file for update
+  - name: validate
+    fail:
+      msg: CentOS Require
+    when: ansible_facts['distribution'] != "CentOS" 
+
+  - name: update all
+    yum:
+      name: '*'
+      update_cache: yes
+      state: latest
